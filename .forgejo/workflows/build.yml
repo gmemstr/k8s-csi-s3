@@ -1,0 +1,68 @@
+name: Build and Push csi-s3
+
+on:
+  push:
+
+jobs:
+  build-amd64:
+    runs-on: debian-amd64
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3.5.3
+        with:
+          ref: master
+      - name: Login to Docker Hub
+        uses: https://github.com/docker/login-action@v3
+        with:
+          username: arch
+          password: ${{ secrets.REGISTRY_TOKEN }}
+          registry: git.gmem.ca
+      - name: Build and push
+        uses: https://github.com/docker/build-push-action@v6
+        with:
+          push: true
+          tags: git.gmem.ca/arch/csi-s3:amd64
+
+  build-arm64:
+    runs-on: debian-arm64
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3.5.3
+        with:
+          ref: master
+      - name: Login to Docker Hub
+        uses: https://github.com/docker/login-action@v3
+        with:
+          username: arch
+          password: ${{ secrets.REGISTRY_TOKEN }}
+          registry: git.gmem.ca
+      - name: Build and push
+        uses: https://github.com/docker/build-push-action@v6
+        with:
+          push: true
+          tags: git.gmem.ca/arch/csi-s3:arm64
+
+  merge:
+    runs-on: debian-latest
+    container:
+      image: ghcr.io/catthehacker/ubuntu:act-22.04
+    needs: [build-amd64, build-arm64]
+    steps:
+      - name: Login to Docker Hub
+        uses: https://github.com/docker/login-action@v3
+        with:
+          username: arch
+          password: ${{ secrets.REGISTRY_TOKEN }}
+          registry: git.gmem.ca
+      - name: Merge and push manifest
+        run: |
+          docker pull git.gmem.ca/arch/csi-s3:amd64
+          docker pull git.gmem.ca/arch/csi-s3:arm64
+          docker manifest create git.gmem.ca/arch/csi-s3:latest \
+            --amend git.gmem.ca/arch/csi-s3:amd64 \
+            --amend git.gmem.ca/arch/csi-s3:arm64
+          docker manifest push git.gmem.ca/arch/csi-s3:latest
