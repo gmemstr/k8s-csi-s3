@@ -16,7 +16,7 @@ spec:
     namespace: default
     name: csi-s3-manual-pvc
   csi:
-    driver: ru.yandex.s3.csi
+    driver: ca.gmem.s3.csi
     controllerPublishSecretRef:
       name: csi-s3-secret
       namespace: kube-system

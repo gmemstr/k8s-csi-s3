@@ -146,7 +146,7 @@ func (tigrisfs *tigrisfsMounter) Mount(target, volumeID string) error {
 	}
 	pluginDir := os.Getenv("PLUGIN_DIR")
 	if pluginDir == "" {
-		pluginDir = "/var/lib/kubelet/plugins/ru.yandex.s3.csi"
+		pluginDir = "/var/lib/kubelet/plugins/ca.gmem.s3.csi"
 	}
 	args = append([]string{pluginDir + "/tigrisfs", "-f", "-o", "allow_other", "--endpoint", tigrisfs.endpoint}, args...)
 	glog.Info("Starting tigrisfs using systemd: " + strings.Join(args, " "))

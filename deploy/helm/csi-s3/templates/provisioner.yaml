@@ -89,11 +89,11 @@ spec:
             - "--v=4"
           env:
             - name: ADDRESS
-              value: {{ .Values.kubeletPath }}/plugins/ru.yandex.s3.csi/csi.sock
+              value: {{ .Values.kubeletPath }}/plugins/ca.gmem.s3.csi/csi.sock
           imagePullPolicy: "IfNotPresent"
           volumeMounts:
             - name: socket-dir
-              mountPath: {{ .Values.kubeletPath }}/plugins/ru.yandex.s3.csi
+              mountPath: {{ .Values.kubeletPath }}/plugins/ca.gmem.s3.csi
         - name: csi-s3
           image: {{ .Values.images.csi }}
           imagePullPolicy: IfNotPresent
@@ -103,14 +103,14 @@ spec:
             - "--v=4"
           env:
             - name: CSI_ENDPOINT
-              value: unix://{{ .Values.kubeletPath }}/plugins/ru.yandex.s3.csi/csi.sock
+              value: unix://{{ .Values.kubeletPath }}/plugins/ca.gmem.s3.csi/csi.sock
             - name: NODE_ID
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
           volumeMounts:
             - name: socket-dir
-              mountPath: {{ .Values.kubeletPath }}/plugins/ru.yandex.s3.csi
+              mountPath: {{ .Values.kubeletPath }}/plugins/ca.gmem.s3.csi
       volumes:
         - name: socket-dir
           emptyDir: {}

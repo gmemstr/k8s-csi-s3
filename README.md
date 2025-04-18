@@ -35,11 +35,13 @@ The region can be empty if you are using some other S3 compatible storage.
 
 #### 2. Deploy the driver
 
+`master` can be replaced with the relevant tag.
+
 ```bash
-cd deploy/kubernetes
-kubectl create -f provisioner.yaml
-kubectl create -f driver.yaml
-kubectl create -f csi-s3.yaml
+# Cloned locally
+kubectl apply -k dpeloy/kubernetes
+# Not cloned remotely.
+kustomize build "https://git.gmem.ca/arch/k8s-csi-s3/deploy/kubernetes?ref=master"
 ```
 
 #### 3. Create the storage class
@@ -94,7 +96,7 @@ kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
   name: csi-s3-existing-bucket
-provisioner: ru.yandex.s3.csi
+provisioner: ca.gmem.s3.csi
 parameters:
   mounter: geesefs
   options: "--memory-limit 1000 --dir-mode 0777 --file-mode 0666"

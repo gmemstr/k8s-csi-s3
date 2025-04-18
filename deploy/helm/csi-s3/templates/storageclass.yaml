@@ -7,7 +7,7 @@ metadata:
   annotations:
 {{ toYaml .Values.storageClass.annotations | indent 4 }}
 {{- end }}
-provisioner: ru.yandex.s3.csi
+provisioner: ca.gmem.s3.csi
 parameters:
   mounter: "{{ .Values.storageClass.mounter }}"
   options: "{{ .Values.storageClass.mountOptions }}"
