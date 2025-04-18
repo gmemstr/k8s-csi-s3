@@ -40,5 +40,9 @@ jobs:
           tar -xzvf tigrisfs.tar.gz
           mv tigrisfs /usr/bin/tigrisfs && chmod 755 /usr/bin/tigrisfs
 
+      - name: Run Linting
+        uses: https://github.com/golangci/golangci-lint-action@v7
+        with:
+          version: v2.0
       - name: Run tests
         run: ./test/test.sh

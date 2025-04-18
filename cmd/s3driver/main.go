@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	flag.Set("logtostderr", "true")
+	_ = flag.Set("logtostderr", "true")
 }
 
 var (
@@ -36,10 +36,10 @@ var (
 func main() {
 	flag.Parse()
 
-	driver, err := driver.New(*nodeID, *endpoint)
+	d, err := driver.New(*nodeID, *endpoint)
 	if err != nil {
 		log.Fatal(err)
 	}
-	driver.Run()
+	d.Run()
 	os.Exit(0)
 }

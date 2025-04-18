@@ -59,7 +59,8 @@ func getMeta(bucketName, prefix string, context map[string]string) *s3.FSMeta {
 	}
 }
 
-func (d *driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+func (d *Driver) NodePublishVolume(_ context.Context, req *csi.NodePublishVolumeRequest) (
+	*csi.NodePublishVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
 	targetPath := req.GetTargetPath()
 	stagingTargetPath := req.GetStagingTargetPath()
@@ -120,7 +121,7 @@ func (d *driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	glog.V(3).Infof("Binding volume %v from %v to %v", volumeID, stagingTargetPath, targetPath)
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("Error running mount --bind %v %v: %s", stagingTargetPath, targetPath, out)
+		return nil, fmt.Errorf("error running mount --bind %v %v: %s", stagingTargetPath, targetPath, out)
 	}
 
 	glog.V(4).Infof("s3: volume %s successfully mounted to %s", volumeID, targetPath)
@@ -128,7 +129,9 @@ func (d *driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-func (d *driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+func (d *Driver) NodeUnpublishVolume(
+	_ context.Context, req *csi.NodeUnpublishVolumeRequest,
+) (*csi.NodeUnpublishVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
 	targetPath := req.GetTargetPath()
 
@@ -148,7 +151,9 @@ func (d *driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublish
 	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
-func (d *driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+func (d *Driver) NodeStageVolume(
+	_ context.Context, req *csi.NodeStageVolumeRequest,
+) (*csi.NodeStageVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
 	stagingTargetPath := req.GetStagingTargetPath()
 	bucketName, prefix := volumeIDToBucketPrefix(volumeID)
@@ -190,7 +195,9 @@ func (d *driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	return &csi.NodeStageVolumeResponse{}, nil
 }
 
-func (d *driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+func (d *Driver) NodeUnstageVolume(
+	_ context.Context, req *csi.NodeUnstageVolumeRequest,
+) (*csi.NodeUnstageVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
 	stagingTargetPath := req.GetStagingTargetPath()
 
@@ -214,7 +221,7 @@ func (d *driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 		}
 	}
 	if !exists {
-		err = mounter.FuseUnmount(stagingTargetPath)
+		_ = mounter.FuseUnmount(stagingTargetPath)
 	}
 	glog.V(4).Infof("s3: volume %s has been unmounted from stage path %v.", volumeID, stagingTargetPath)
 
@@ -222,7 +229,9 @@ func (d *driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 }
 
 // NodeGetCapabilities returns the supported capabilities of the node server
-func (d *driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+func (d *Driver) NodeGetCapabilities(
+	_ context.Context, _ *csi.NodeGetCapabilitiesRequest,
+) (*csi.NodeGetCapabilitiesResponse, error) {
 	// currently there is a single NodeServer capability according to the spec
 	nscap := &csi.NodeServiceCapability{
 		Type: &csi.NodeServiceCapability_Rpc{
@@ -239,7 +248,9 @@ func (d *driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabi
 	}, nil
 }
 
-func (d *driver) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolumeRequest) (*csi.NodeExpandVolumeResponse, error) {
+func (d *Driver) NodeExpandVolume(
+	_ context.Context, _ *csi.NodeExpandVolumeRequest,
+) (*csi.NodeExpandVolumeResponse, error) {
 	return &csi.NodeExpandVolumeResponse{}, status.Error(codes.Unimplemented, "NodeExpandVolume is not implemented")
 }
 
@@ -258,7 +269,7 @@ func checkMount(targetPath string) (bool, error) {
 	return notMnt, nil
 }
 
-func (d *driver) NodeGetInfo(ctx context.Context, req *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
+func (d *Driver) NodeGetInfo(_ context.Context, _ *csi.NodeGetInfoRequest) (*csi.NodeGetInfoResponse, error) {
 	resp := &csi.NodeGetInfoResponse{
 		NodeId: d.nodeid,
 	}

@@ -21,7 +21,7 @@ import (
 	"github.com/golang/glog"
 )
 
-type driver struct {
+type Driver struct {
 	endpoint string
 	nodeid   string
 
@@ -41,29 +41,33 @@ var (
 )
 
 // New initializes the driver
-func New(nodeID string, endpoint string) (*driver, error) {
-	s3Driver := &driver{
+func New(nodeID string, endpoint string) (*Driver, error) {
+	s3Driver := &Driver{
 		nodeid:   nodeID,
 		endpoint: endpoint,
 	}
 	return s3Driver, nil
 }
 
-func (d *driver) Run() {
-	glog.Infof("Driver: %v ", driverName)
+func (d *Driver) Run() {
+	glog.Infof("driver: %v ", driverName)
 	glog.Infof("Version: %v ", vendorVersion)
 	// Initialize default library driver
 
-	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME})
-	d.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER})
+	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{
+		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+	})
+	d.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{
+		csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER,
+	})
 
 	s := NewNonBlockingGRPCServer()
 	s.Start(d.endpoint, d, d, d, d, d)
 	s.Wait()
 }
 
-func (d *driver) AddControllerServiceCapabilities(cl []csi.ControllerServiceCapability_RPC_Type) {
-	var csc []*csi.ControllerServiceCapability
+func (d *Driver) AddControllerServiceCapabilities(cl []csi.ControllerServiceCapability_RPC_Type) {
+	var csc []*csi.ControllerServiceCapability //nolint:prealloc
 
 	for _, c := range cl {
 		glog.Infof("Enabling controller service capability: %v", c.String())
@@ -71,12 +75,13 @@ func (d *driver) AddControllerServiceCapabilities(cl []csi.ControllerServiceCapa
 	}
 
 	d.cap = csc
-
-	return
 }
 
-func (d *driver) AddVolumeCapabilityAccessModes(vc []csi.VolumeCapability_AccessMode_Mode) []*csi.VolumeCapability_AccessMode {
-	var vca []*csi.VolumeCapability_AccessMode
+func (d *Driver) AddVolumeCapabilityAccessModes(
+	vc []csi.VolumeCapability_AccessMode_Mode,
+) []*csi.VolumeCapability_AccessMode {
+	var vca []*csi.VolumeCapability_AccessMode //nolint:prealloc
+
 	for _, c := range vc {
 		glog.Infof("Enabling volume access mode: %v", c.String())
 		vca = append(vca, NewVolumeCapabilityAccessMode(c))
@@ -85,6 +90,6 @@ func (d *driver) AddVolumeCapabilityAccessModes(vc []csi.VolumeCapability_Access
 	return vca
 }
 
-func (d *driver) GetVolumeCapabilityAccessModes() []*csi.VolumeCapability_AccessMode {
+func (d *Driver) GetVolumeCapabilityAccessModes() []*csi.VolumeCapability_AccessMode {
 	return d.vc
 }

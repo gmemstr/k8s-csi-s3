@@ -1,9 +1,9 @@
 package mounter
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"os/exec"
@@ -34,7 +34,9 @@ const (
 	OptionsKey          = "options"
 )
 
-// New returns a new mounter depending on the mounterType parameter
+// New returns a new mounter depending on the mounterType parameter.
+// TigrisFS is a fork of GeeseFS, so we can use the same methods and just swap
+// the binaries.
 func New(meta *s3.FSMeta, cfg *s3.Config) (Mounter, error) {
 	mounter := meta.Mounter
 	// Fall back to mounterType in cfg
@@ -43,10 +45,10 @@ func New(meta *s3.FSMeta, cfg *s3.Config) (Mounter, error) {
 	}
 	switch mounter {
 	case geesefsMounterType:
-		return newGeeseFSMounter(meta, cfg)
+		return newTigrisFSMounter(meta, cfg, geesefsMounterType)
 
 	case tigrisfsMounterType:
-		return newTigrisFSMounter(meta, cfg)
+		return newTigrisFSMounter(meta, cfg, tigrisfsMounterType)
 
 	case s3fsMounterType:
 		return newS3fsMounter(meta, cfg)
@@ -56,7 +58,7 @@ func New(meta *s3.FSMeta, cfg *s3.Config) (Mounter, error) {
 
 	default:
 		// default to GeeseFS
-		return newTigrisFSMounter(meta, cfg)
+		return newTigrisFSMounter(meta, cfg, tigrisfsMounterType)
 	}
 }
 
@@ -65,11 +67,11 @@ func fuseMount(path string, command string, args []string, envs []string) error 
 	cmd.Stderr = os.Stderr
 	// cmd.Environ() returns envs inherited from the current process
 	cmd.Env = append(cmd.Environ(), envs...)
-	glog.V(3).Infof("Mounting fuse with command: %s and args: %s", command, args)
+	glog.V(3).Infof("mounting fuse with command: %s and args: %s", command, args)
 
 	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("Error fuseMount command: %s\nargs: %s\noutput: %s", command, args, out)
+		return fmt.Errorf("error fuseMount command: %s\nargs: %s\noutput: %s", command, args, out)
 	}
 
 	return waitForMount(path, 10*time.Second)
@@ -83,17 +85,18 @@ func Unmount(path string) error {
 }
 
 func SystemdUnmount(volumeID string) (bool, error) {
-	conn, err := systemd.New()
+	ctx := context.Background()
+	conn, err := systemd.NewWithContext(ctx)
 	if err != nil {
-		glog.Errorf("Failed to connect to systemd dbus service: %v", err)
+		glog.Errorf("failed to connect to systemd dbus service: %v", err)
 		return false, err
 	}
 	defer conn.Close()
 	unitName := "geesefs-" + systemd.PathBusEscape(volumeID) + ".service"
-	units, err := conn.ListUnitsByNames([]string{unitName})
-	glog.Errorf("Got %v", units)
+	units, err := conn.ListUnitsByNamesContext(ctx, []string{unitName})
+	glog.Errorf("got %v", units)
 	if err != nil {
-		glog.Errorf("Failed to list systemd unit by name %v: %v", unitName, err)
+		glog.Errorf("failed to list systemd unit by name %v: %v", unitName, err)
 		return false, err
 	}
 	if len(units) == 0 || units[0].ActiveState == "inactive" || units[0].ActiveState == "failed" {
@@ -103,14 +106,14 @@ func SystemdUnmount(volumeID string) (bool, error) {
 	resCh := make(chan string)
 	defer close(resCh)
 
-	_, err = conn.StopUnit(unitName, "replace", resCh)
+	_, err = conn.StopUnitContext(ctx, unitName, "replace", resCh)
 	if err != nil {
-		glog.Errorf("Failed to stop systemd unit (%s): %v", unitName, err)
+		glog.Errorf("failed to stop systemd unit (%s): %v", unitName, err)
 		return false, err
 	}
 
 	res := <-resCh // wait until is stopped
-	glog.Infof("Systemd unit is stopped with result (%s): %s", unitName, res)
+	glog.Infof("systemd unit is stopped with result (%s): %s", unitName, res)
 
 	return true, nil
 }
@@ -122,14 +125,14 @@ func FuseUnmount(path string) error {
 	// as fuse quits immediately, we will try to wait until the process is done
 	process, err := FindFuseMountProcess(path)
 	if err != nil {
-		glog.Errorf("Error getting PID of fuse mount: %s", err)
+		glog.Errorf("error getting PID of fuse mount: %s", err)
 		return nil
 	}
 	if process == nil {
-		glog.Warningf("Unable to find PID of fuse mount %s, it must have finished already", path)
+		glog.Warningf("unable to find PID of fuse mount %s, it must have finished already", path)
 		return nil
 	}
-	glog.Infof("Found fuse pid %v of mount %s, checking if it still runs", process.Pid, path)
+	glog.Infof("found fuse pid %v of mount %s, checking if it still runs", process.Pid, path)
 	return waitForProcess(process, 20)
 }
 
@@ -147,7 +150,7 @@ func waitForMount(path string, timeout time.Duration) error {
 		time.Sleep(interval)
 		elapsed = elapsed + interval
 		if elapsed >= timeout {
-			return errors.New("Timeout waiting for mount")
+			return errors.New("timeout waiting for mount")
 		}
 	}
 }
@@ -160,11 +163,11 @@ func FindFuseMountProcess(path string) (*os.Process, error) {
 	for _, p := range processes {
 		cmdLine, err := getCmdLine(p.Pid())
 		if err != nil {
-			glog.Errorf("Unable to get cmdline of PID %v: %s", p.Pid(), err)
+			glog.Errorf("unable to get cmdline of PID %v: %s", p.Pid(), err)
 			continue
 		}
 		if strings.Contains(cmdLine, path) {
-			glog.Infof("Found matching pid %v on path %s", p.Pid(), path)
+			glog.Infof("found matching pid %v on path %s", p.Pid(), path)
 			return os.FindProcess(p.Pid())
 		}
 	}
@@ -175,49 +178,44 @@ func waitForProcess(p *os.Process, limit int) error {
 	for backoff := 0; backoff < limit; backoff++ {
 		cmdLine, err := getCmdLine(p.Pid)
 		if err != nil {
-			glog.Warningf("Error checking cmdline of PID %v, assuming it is dead: %s", p.Pid, err)
-			p.Wait()
+			glog.Warningf("error checking cmdline of PID %v, assuming it is dead: %s", p.Pid, err)
+			_, err := p.Wait()
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 		if cmdLine == "" {
-			glog.Warning("Fuse process seems dead, returning")
-			p.Wait()
+			glog.Warning("fuse process seems dead, returning")
+			_, err := p.Wait()
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 		if err := p.Signal(syscall.Signal(0)); err != nil {
-			glog.Warningf("Fuse process does not seem active or we are unprivileged: %s", err)
-			p.Wait()
+			glog.Warningf("fuse process does not seem active or we are unprivileged: %s", err)
+			_, err := p.Wait()
+			if err != nil {
+				return err
+			}
 			return nil
 		}
-		glog.Infof("Fuse process with PID %v still active, waiting...", p.Pid)
+		glog.Infof("fuse process with PID %v still active, waiting...", p.Pid)
 		time.Sleep(time.Duration(math.Pow(1.5, float64(backoff))*100) * time.Millisecond)
 	}
-	p.Release()
-	return fmt.Errorf("Timeout waiting for PID %v to end", p.Pid)
+	err := p.Release()
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("timeout waiting for PID %v to end", p.Pid)
 }
 
 func getCmdLine(pid int) (string, error) {
 	cmdLineFile := fmt.Sprintf("/proc/%v/cmdline", pid)
-	cmdLine, err := ioutil.ReadFile(cmdLineFile)
+	cmdLine, err := os.ReadFile(cmdLineFile)
 	if err != nil {
 		return "", err
 	}
 	return string(cmdLine), nil
-}
-
-func createLoopDevice(device string) error {
-	if _, err := os.Stat(device); !os.IsNotExist(err) {
-		return nil
-	}
-	args := []string{
-		device,
-		"b", "7", "0",
-	}
-	cmd := exec.Command("mknod", args...)
-
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("Error configuring loop device: %s", out)
-	}
-	return nil
 }

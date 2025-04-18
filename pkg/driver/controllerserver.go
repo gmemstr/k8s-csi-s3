@@ -35,10 +35,13 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
-func (d *driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+func (d *Driver) CreateVolume(_ context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	params := req.GetParameters()
-	capacityBytes := int64(req.GetCapacityRange().GetRequiredBytes())
+	capacityBytes := req.GetCapacityRange().GetRequiredBytes()
 	volumeID := sanitizeVolumeID(req.GetName())
+	if volumeID == "" {
+		return nil, status.Error(codes.InvalidArgument, "Unable to sanitise volume name")
+	}
 	bucketName := volumeID
 	prefix := ""
 
@@ -54,10 +57,6 @@ func (d *driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, err
 	}
 
-	// Check arguments
-	if len(volumeID) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "Name missing in request")
-	}
 	if req.GetVolumeCapabilities() == nil {
 		return nil, status.Error(codes.InvalidArgument, "Volume Capabilities missing in request")
 	}
@@ -87,21 +86,21 @@ func (d *driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	glog.V(4).Infof("create volume %s", volumeID)
 	// DeleteVolume lacks VolumeContext, but publish&unpublish requests have it,
 	// so we don't need to store additional metadata anywhere
-	context := make(map[string]string)
+	ctx := make(map[string]string)
 	for k, v := range params {
-		context[k] = v
+		ctx[k] = v
 	}
-	context["capacity"] = fmt.Sprintf("%v", capacityBytes)
+	ctx["capacity"] = fmt.Sprintf("%v", capacityBytes)
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			VolumeId:      volumeID,
 			CapacityBytes: capacityBytes,
-			VolumeContext: context,
+			VolumeContext: ctx,
 		},
 	}, nil
 }
 
-func (d *driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+func (d *Driver) DeleteVolume(_ context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
 	volumeID := req.GetVolumeId()
 	bucketName, prefix := volumeIDToBucketPrefix(volumeID)
 
@@ -142,7 +141,8 @@ func (d *driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
-func (d *driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+func (d *Driver) ValidateVolumeCapabilities(
+	_ context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
 	// Check arguments
 	if len(req.GetVolumeId()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
@@ -187,15 +187,20 @@ func (d *driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	}, nil
 }
 
-func (d *driver) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
-	return &csi.ControllerExpandVolumeResponse{}, status.Error(codes.Unimplemented, "ControllerExpandVolume is not implemented")
+func (d *Driver) ControllerExpandVolume(
+	_ context.Context, _ *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+	return &csi.ControllerExpandVolumeResponse{}, status.Error(codes.Unimplemented,
+		"ControllerExpandVolume is not implemented")
 }
 
 func sanitizeVolumeID(volumeID string) string {
 	volumeID = strings.ToLower(volumeID)
 	if len(volumeID) > 63 {
 		h := sha1.New()
-		io.WriteString(h, volumeID)
+		_, err := io.WriteString(h, volumeID)
+		if err != nil {
+			return ""
+		}
 		volumeID = hex.EncodeToString(h.Sum(nil))
 	}
 	return volumeID
@@ -214,38 +219,42 @@ func volumeIDToBucketPrefix(volumeID string) (string, string) {
 	return volumeID, ""
 }
 
-func (d *driver) ValidateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) error {
+func (d *Driver) ValidateControllerServiceRequest(c csi.ControllerServiceCapability_RPC_Type) error {
 	if c == csi.ControllerServiceCapability_RPC_UNKNOWN {
 		return nil
 	}
 
-	for _, cap := range d.cap {
-		if c == cap.GetRpc().GetType() {
+	for _, capability := range d.cap {
+		if c == capability.GetRpc().GetType() {
 			return nil
 		}
 	}
-	return status.Error(codes.InvalidArgument, fmt.Sprintf("%s", c))
+	return status.Error(codes.InvalidArgument, string(c))
 }
 
-func (d *driver) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
+func (d *Driver) ControllerGetCapabilities(
+	_ context.Context, _ *csi.ControllerGetCapabilitiesRequest,
+) (*csi.ControllerGetCapabilitiesResponse, error) {
 	return &csi.ControllerGetCapabilitiesResponse{
 		Capabilities: d.cap,
 	}, nil
 }
 
-func (d *driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+func (d *Driver) ControllerPublishVolume(
+	_ context.Context, _ *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (d *driver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+func (d *Driver) ControllerUnpublishVolume(
+	_ context.Context, _ *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (d *driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+func (d *Driver) ListVolumes(_ context.Context, _ *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (d *driver) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+func (d *Driver) GetCapacity(_ context.Context, _ *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	return &csi.GetCapacityResponse{
 		AvailableCapacity: 9223372036854775807,
 		MaximumVolumeSize: &wrapperspb.Int64Value{},
@@ -253,14 +262,14 @@ func (d *driver) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (
 	}, nil
 }
 
-func (d *driver) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
+func (d *Driver) CreateSnapshot(_ context.Context, _ *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (d *driver) DeleteSnapshot(ctx context.Context, req *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
+func (d *Driver) DeleteSnapshot(_ context.Context, _ *csi.DeleteSnapshotRequest) (*csi.DeleteSnapshotResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
-func (d *driver) ListSnapshots(ctx context.Context, req *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
+func (d *Driver) ListSnapshots(_ context.Context, _ *csi.ListSnapshotsRequest) (*csi.ListSnapshotsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "")
 }

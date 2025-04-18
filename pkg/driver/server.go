@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"strings"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -28,72 +27,69 @@ import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
 )
 
-func NewNonBlockingGRPCServer() *nonBlockingGRPCServer {
-	return &nonBlockingGRPCServer{}
+func NewNonBlockingGRPCServer() *NonBlockingGRPCServer {
+	return &NonBlockingGRPCServer{}
 }
 
-// NonBlocking server
-type nonBlockingGRPCServer struct {
+// NonBlockingGRPCServer server
+type NonBlockingGRPCServer struct {
 	wg      sync.WaitGroup
 	server  *grpc.Server
 	cleanup func()
 }
 
-func (s *nonBlockingGRPCServer) Start(endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer, sms csi.SnapshotMetadataServer) {
+func (s *NonBlockingGRPCServer) Start(
+	endpoint string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer,
+	gcs csi.GroupControllerServer, sms csi.SnapshotMetadataServer,
+) {
 
 	s.wg.Add(1)
 
 	go s.serve(endpoint, ids, cs, ns, gcs, sms)
-
-	return
 }
 
-func (s *nonBlockingGRPCServer) Wait() {
+func (s *NonBlockingGRPCServer) Wait() {
 	s.wg.Wait()
 }
 
-func (s *nonBlockingGRPCServer) Stop() {
+func (s *NonBlockingGRPCServer) Stop() {
 	s.server.GracefulStop()
 	s.cleanup()
 }
 
-func (s *nonBlockingGRPCServer) ForceStop() {
+func (s *NonBlockingGRPCServer) ForceStop() {
 	s.server.Stop()
 	s.cleanup()
 }
 
-func parse(ep string) (string, string, error) {
-	if strings.HasPrefix(strings.ToLower(ep), "unix://") || strings.HasPrefix(strings.ToLower(ep), "tcp://") {
-		s := strings.SplitN(ep, "://", 2)
-		if s[1] != "" {
-			return s[0], s[1], nil
-		}
-		return "", "", fmt.Errorf("Invalid endpoint: %v", ep)
-	}
-	// Assume everything else is a file path for a Unix Domain Socket.
-	return "unix", ep, nil
-}
-
-func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer, gcs csi.GroupControllerServer, sms csi.SnapshotMetadataServer) {
-	proto, addr, err := parse(ep)
+func (s *NonBlockingGRPCServer) serve(
+	ep string, ids csi.IdentityServer, cs csi.ControllerServer, ns csi.NodeServer,
+	gcs csi.GroupControllerServer, sms csi.SnapshotMetadataServer,
+) {
+	proto, addr, err := ParseEndpoint(ep)
 	if err != nil {
+		fmt.Printf("unable to parse addr %s: %s\n", addr, err)
 		return
 	}
 
 	cleanup := func() {}
 	if proto == "unix" {
 		addr = "/" + addr
-		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) { //nolint: vetshadow
+		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 			return
 		}
 		cleanup = func() {
-			os.Remove(addr)
+			_ = os.Remove(addr)
 		}
 	}
 
 	l, err := net.Listen(proto, addr)
+	if err != nil {
+		fmt.Printf("unable to bind to addr %s: %s", addr, err)
+		return
+	}
 
-	opts := []grpc.ServerOption{}
+	var opts []grpc.ServerOption
 	server := grpc.NewServer(opts...)
 	s.server = server
 	s.cleanup = cleanup
@@ -114,6 +110,9 @@ func (s *nonBlockingGRPCServer) serve(ep string, ids csi.IdentityServer, cs csi.
 		csi.RegisterSnapshotMetadataServer(server, sms)
 	}
 
-	server.Serve(l)
+	err = server.Serve(l)
+	if err != nil {
+		fmt.Printf("unable to serve: %s\n", err)
+	}
 
 }

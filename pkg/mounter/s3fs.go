@@ -28,7 +28,7 @@ func newS3fsMounter(meta *s3.FSMeta, cfg *s3.Config) (Mounter, error) {
 	}, nil
 }
 
-func (s3fs *s3fsMounter) Mount(target, volumeID string) error {
+func (s3fs *s3fsMounter) Mount(target, _ string) error {
 	if err := writes3fsPass(s3fs.pwFileContent); err != nil {
 		return err
 	}
@@ -57,6 +57,9 @@ func writes3fsPass(pwFileContent string) error {
 	if err != nil {
 		return err
 	}
-	pwFile.Close()
+	err = pwFile.Close()
+	if err != nil {
+		return err
+	}
 	return nil
 }

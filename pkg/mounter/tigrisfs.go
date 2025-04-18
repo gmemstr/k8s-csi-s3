@@ -1,21 +1,17 @@
 package mounter
 
 import (
+	"cmp"
 	"fmt"
-	"golang.org/x/net/context"
 	"os"
 	"strings"
 	"time"
 
-	systemd "github.com/coreos/go-systemd/v22/dbus"
-	dbus "github.com/godbus/dbus/v5"
-	"github.com/golang/glog"
-
 	"git.gmem.ca/arch/k8s-csi-s3/pkg/s3"
-)
-
-const (
-	tigrisfsCmd = "tigrisfs"
+	systemd "github.com/coreos/go-systemd/v22/dbus"
+	"github.com/godbus/dbus/v5"
+	"github.com/golang/glog"
+	"golang.org/x/net/context"
 )
 
 // Implements Mounter
@@ -25,46 +21,48 @@ type tigrisfsMounter struct {
 	region          string
 	accessKeyID     string
 	secretAccessKey string
+	binary          string
 }
 
-func newTigrisFSMounter(meta *s3.FSMeta, cfg *s3.Config) (Mounter, error) {
+func newTigrisFSMounter(meta *s3.FSMeta, cfg *s3.Config, binary string) (Mounter, error) {
 	return &tigrisfsMounter{
 		meta:            meta,
 		endpoint:        cfg.Endpoint,
 		region:          cfg.Region,
 		accessKeyID:     cfg.AccessKeyID,
 		secretAccessKey: cfg.SecretAccessKey,
+		binary:          binary,
 	}, nil
 }
 
 func (tigrisfs *tigrisfsMounter) CopyBinary(from, to string) error {
 	st, err := os.Stat(from)
 	if err != nil {
-		return fmt.Errorf("Failed to stat %s: %v", from, err)
+		return fmt.Errorf("failed to stat %s: %v", from, err)
 	}
 	st2, err := os.Stat(to)
 	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("Failed to stat %s: %v", to, err)
+		return fmt.Errorf("failed to stat %s: %v", to, err)
 	}
 	if err != nil || st2.Size() != st.Size() || st2.ModTime() != st.ModTime() {
 		if err == nil {
 			// remove the file first to not hit "text file busy" errors
 			err = os.Remove(to)
 			if err != nil {
-				return fmt.Errorf("Error removing %s to update it: %v", to, err)
+				return fmt.Errorf("error removing %s to update it: %v", to, err)
 			}
 		}
 		bin, err := os.ReadFile(from)
 		if err != nil {
-			return fmt.Errorf("Error copying %s to %s: %v", from, to, err)
+			return fmt.Errorf("error copying %s to %s: %v", from, to, err)
 		}
 		err = os.WriteFile(to, bin, 0755)
 		if err != nil {
-			return fmt.Errorf("Error copying %s to %s: %v", from, to, err)
+			return fmt.Errorf("error copying %s to %s: %v", from, to, err)
 		}
 		err = os.Chtimes(to, st.ModTime(), st.ModTime())
 		if err != nil {
-			return fmt.Errorf("Error copying %s to %s: %v", from, to, err)
+			return fmt.Errorf("error copying %s to %s: %v", from, to, err)
 		}
 	}
 	return nil
@@ -80,10 +78,11 @@ func (tigrisfs *tigrisfsMounter) MountDirect(target string, args []string) error
 		"AWS_ACCESS_KEY_ID=" + tigrisfs.accessKeyID,
 		"AWS_SECRET_ACCESS_KEY=" + tigrisfs.secretAccessKey,
 	}
-	return fuseMount(target, tigrisfsCmd, args, envs)
+	return fuseMount(target, tigrisfs.binary, args, envs)
 }
 
 func (tigrisfs *tigrisfsMounter) Mount(target, volumeID string) error {
+	ctx := context.Background()
 	fullPath := fmt.Sprintf("%s:%s", tigrisfs.meta.BucketName, tigrisfs.meta.Prefix)
 	var args []string
 	if tigrisfs.region != "" {
@@ -94,79 +93,80 @@ func (tigrisfs *tigrisfsMounter) Mount(target, volumeID string) error {
 		"--setuid", "65534", // nobody. drop root privileges
 		"--setgid", "65534", // nogroup
 	)
-	var unsafeArgs []string
 	useSystemd := true
 	for i := 0; i < len(tigrisfs.meta.MountOptions); i++ {
 		opt := tigrisfs.meta.MountOptions[i]
+		if len(opt) == 0 {
+			continue
+		}
 		if opt == "--no-systemd" {
 			useSystemd = false
-		} else if len(opt) > 0 && opt[0] == '-' {
-			// Remove unsafe options
-			s := 1
-			if len(opt) > 1 && opt[1] == '-' {
-				s++
-			}
-			key := opt[s:]
-			e := strings.Index(opt, "=")
-			if e >= 0 {
-				key = opt[s:e]
-			}
-			if key == "log-file" || key == "shared-config" || key == "cache" {
-				// Skip options accessing local FS
-				unsafeArgs = append(unsafeArgs, opt)
-				i++
-				if i < len(tigrisfs.meta.MountOptions) {
-					unsafeArgs = append(unsafeArgs, tigrisfs.meta.MountOptions[i])
-				}
-			} else if key != "" {
-				args = append(args, opt)
-			}
-		} else if len(opt) > 0 {
+			continue
+		}
+		if len(opt) > 0 && opt[0] != '-' {
+			args = append(args, opt)
+			continue
+		}
+		// Remove unsafe options
+		s := 1
+		if len(opt) > 1 && opt[1] == '-' {
+			s++
+		}
+		key := opt[s:]
+		e := strings.Index(opt, "=")
+		if e >= 0 {
+			key = opt[s:e]
+		}
+		// If we aren't using systemd, we consider these flags "safe".
+		if (key == "log-file" || key == "shared-config" || key == "cache") && useSystemd {
+			args = append(args, opt)
+		} else if key != "" {
 			args = append(args, opt)
 		}
 	}
-	if !useSystemd {
-		// Unsafe options are allowed when running inside the container
-		args = append(args, unsafeArgs...)
-	}
 	args = append(args, fullPath, target)
-	// Try to start tigrisfs using systemd so it doesn't get killed when the container exits
 	if !useSystemd {
 		return tigrisfs.MountDirect(target, args)
 	}
-	conn, err := systemd.New()
+	return tigrisfs.setupSystemdMount(ctx, volumeID, target, args)
+}
+
+func (tigrisfs *tigrisfsMounter) setupSystemdMount(ctx context.Context, volumeID, target string, args []string) error {
+	conn, err := systemd.NewWithContext(ctx)
 	if err != nil {
-		glog.Errorf("Failed to connect to systemd dbus service: %v, starting tigrisfs directly", err)
+		glog.Errorf("failed to connect to systemd dbus service: %v, starting tigrisfs directly", err)
 		return tigrisfs.MountDirect(target, args)
 	}
 	defer conn.Close()
 	// systemd is present
-	if err = tigrisfs.CopyBinary("/usr/bin/tigrisfs", "/csi/tigrisfs"); err != nil {
+	if err = tigrisfs.CopyBinary(
+		fmt.Sprintf("/usr/bin/%s", tigrisfs.binary),
+		fmt.Sprintf("/csi/%s", tigrisfs.binary)); err != nil {
 		return err
 	}
-	pluginDir := os.Getenv("PLUGIN_DIR")
-	if pluginDir == "" {
-		pluginDir = "/var/lib/kubelet/plugins/ca.gmem.s3.csi"
-	}
+	pluginDir := cmp.Or(os.Getenv("PLUGIN_DIR"), "/var/lib/kubelet/plugins/ca.gmem.s3.csi")
 	args = append([]string{pluginDir + "/tigrisfs", "-f", "-o", "allow_other", "--endpoint", tigrisfs.endpoint}, args...)
-	glog.Info("Starting tigrisfs using systemd: " + strings.Join(args, " "))
-	unitName := "tigrisfs-" + systemd.PathBusEscape(volumeID) + ".service"
+	glog.Info("starting s3 mount using systemd: " + strings.Join(args, " "))
+	unitName := fmt.Sprintf("%s-%s.service", tigrisfs.binary, systemd.PathBusEscape(volumeID))
 	newProps := []systemd.Property{
-		systemd.Property{
+		{
 			Name:  "Description",
-			Value: dbus.MakeVariant("tigrisFS mount for Kubernetes volume " + volumeID),
+			Value: dbus.MakeVariant("TigrisFS mount for Kubernetes volume " + volumeID),
 		},
 		systemd.PropExecStart(args, false),
-		systemd.Property{
-			Name:  "Environment",
-			Value: dbus.MakeVariant([]string{"AWS_ACCESS_KEY_ID=" + tigrisfs.accessKeyID, "AWS_SECRET_ACCESS_KEY=" + tigrisfs.secretAccessKey}),
+		{
+			Name: "Environment",
+			Value: dbus.MakeVariant([]string{
+				fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", tigrisfs.accessKeyID),
+				fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", tigrisfs.secretAccessKey),
+			}),
 		},
-		systemd.Property{
+		{
 			Name:  "CollectMode",
 			Value: dbus.MakeVariant("inactive-or-failed"),
 		},
 	}
-	unitProps, err := conn.GetAllProperties(unitName)
+	unitProps, err := conn.GetAllPropertiesContext(ctx, unitName)
 	if err == nil {
 		// Unit already exists
 		if s, ok := unitProps["ActiveState"].(string); ok && (s == "active" || s == "activating" || s == "reloading") {
@@ -190,16 +190,21 @@ func (tigrisfs *tigrisfsMounter) Mount(target, volumeID string) error {
 			// Already mounted at right location, wait for mount
 			return waitForMount(target, 30*time.Second)
 		} else {
-			ctx := context.Background()
 			// Stop and garbage collect the unit if automatic collection didn't work for some reason
-			conn.StopUnitContext(ctx, unitName, "replace", nil)
-			conn.ResetFailedUnitContext(ctx, unitName)
+			_, err := conn.StopUnitContext(ctx, unitName, "replace", nil)
+			if err != nil {
+				return err
+			}
+			err = conn.ResetFailedUnitContext(ctx, unitName)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	unitPath := "/run/systemd/system/" + unitName + ".d"
 	err = os.MkdirAll(unitPath, 0755)
 	if err != nil {
-		return fmt.Errorf("Error creating directory %s: %v", unitPath, err)
+		return fmt.Errorf("error creating directory %s: %v", unitPath, err)
 	}
 	// force & lazy unmount to cleanup possibly dead mountpoints
 	err = os.WriteFile(
@@ -208,11 +213,11 @@ func (tigrisfs *tigrisfsMounter) Mount(target, volumeID string) error {
 		0600,
 	)
 	if err != nil {
-		return fmt.Errorf("Error writing %v/50-ExecStopPost.conf: %v", unitPath, err)
+		return fmt.Errorf("error writing %v/50-ExecStopPost.conf: %v", unitPath, err)
 	}
-	_, err = conn.StartTransientUnit(unitName, "replace", newProps, nil)
+	_, err = conn.StartTransientUnitContext(ctx, unitName, "replace", newProps, nil)
 	if err != nil {
-		return fmt.Errorf("Error starting systemd unit %s on host: %v", unitName, err)
+		return fmt.Errorf("error starting systemd unit %s on host: %v", unitName, err)
 	}
 	return waitForMount(target, 30*time.Second)
 }

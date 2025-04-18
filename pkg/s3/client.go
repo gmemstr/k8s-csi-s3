@@ -15,10 +15,6 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
-const (
-	metadataName = ".metadata.json"
-)
-
 type s3Client struct {
 	Config *Config
 	minio  *minio.Client
@@ -100,7 +96,10 @@ func (client *s3Client) CreateBucket(bucketName string) error {
 
 func (client *s3Client) CreatePrefix(bucketName string, prefix string) error {
 	if prefix != "" {
-		_, err := client.minio.PutObject(client.ctx, bucketName, prefix+"/", bytes.NewReader([]byte("")), 0, minio.PutObjectOptions{})
+		_, err := client.minio.PutObject(
+			client.ctx, bucketName, prefix+"/", bytes.NewReader([]byte("")),
+			0, minio.PutObjectOptions{},
+		)
 		if err != nil {
 			return err
 		}
@@ -164,7 +163,8 @@ func (client *s3Client) removeObjects(bucketName, prefix string) error {
 		return listErr
 	}
 
-	select {
+	// TODO S1000
+	select { //nolint
 	default:
 		opts := minio.RemoveObjectsOptions{
 			GovernanceBypass: true,
@@ -176,7 +176,7 @@ func (client *s3Client) removeObjects(bucketName, prefix string) error {
 			haveErrWhenRemoveObjects = true
 		}
 		if haveErrWhenRemoveObjects {
-			return fmt.Errorf("Failed to remove all objects of bucket %s", bucketName)
+			return fmt.Errorf("failed to remove all objects of bucket %s", bucketName)
 		}
 	}
 
@@ -231,7 +231,7 @@ func (client *s3Client) removeObjectsOneByOne(bucketName, prefix string) error {
 	}
 
 	if removeErrors > 0 {
-		return fmt.Errorf("Failed to remove %v objects out of total %v of path %s", removeErrors, totalObjects, bucketName)
+		return fmt.Errorf("failed to remove %v objects out of total %v of path %s", removeErrors, totalObjects, bucketName)
 	}
 
 	return nil
