@@ -11,12 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"git.gmem.ca/arch/k8s-csi-s3/pkg/s3"
 	systemd "github.com/coreos/go-systemd/v22/dbus"
 	"github.com/golang/glog"
 	"github.com/mitchellh/go-ps"
-	"k8s.io/kubernetes/pkg/util/mount"
-
-	"github.com/yandex-cloud/k8s-csi-s3/pkg/s3"
+	"k8s.io/mount-utils"
 )
 
 // Mounter interface which can be implemented
@@ -138,11 +137,11 @@ func waitForMount(path string, timeout time.Duration) error {
 	var elapsed time.Duration
 	var interval = 10 * time.Millisecond
 	for {
-		notMount, err := mount.New("").IsNotMountPoint(path)
+		isMount, err := mount.New("").IsMountPoint(path)
 		if err != nil {
 			return err
 		}
-		if !notMount {
+		if isMount {
 			return nil
 		}
 		time.Sleep(interval)

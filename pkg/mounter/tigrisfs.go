@@ -11,7 +11,7 @@ import (
 	dbus "github.com/godbus/dbus/v5"
 	"github.com/golang/glog"
 
-	"github.com/yandex-cloud/k8s-csi-s3/pkg/s3"
+	"git.gmem.ca/arch/k8s-csi-s3/pkg/s3"
 )
 
 const (

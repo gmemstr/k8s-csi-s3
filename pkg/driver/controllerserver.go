@@ -24,9 +24,9 @@ import (
 	"path"
 	"strings"
 
+	"git.gmem.ca/arch/k8s-csi-s3/pkg/mounter"
+	"git.gmem.ca/arch/k8s-csi-s3/pkg/s3"
 	"github.com/golang/glog"
-	"github.com/yandex-cloud/k8s-csi-s3/pkg/mounter"
-	"github.com/yandex-cloud/k8s-csi-s3/pkg/s3"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

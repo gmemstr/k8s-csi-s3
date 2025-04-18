@@ -23,15 +23,15 @@ import (
 	"regexp"
 	"strconv"
 
+	"git.gmem.ca/arch/k8s-csi-s3/pkg/mounter"
+	"git.gmem.ca/arch/k8s-csi-s3/pkg/s3"
 	"github.com/golang/glog"
-	"github.com/yandex-cloud/k8s-csi-s3/pkg/mounter"
-	"github.com/yandex-cloud/k8s-csi-s3/pkg/s3"
 	"golang.org/x/net/context"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/kubernetes/pkg/util/mount"
+	"k8s.io/mount-utils"
 )
 
 func getMeta(bucketName, prefix string, context map[string]string) *s3.FSMeta {
@@ -85,16 +85,16 @@ func (d *driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	if notMnt {
 		// Staged mount is dead by some reason. Revive it
 		bucketName, prefix := volumeIDToBucketPrefix(volumeID)
-		s3, err := s3.NewClientFromSecret(req.GetSecrets())
+		s3Client, err := s3.NewClientFromSecret(req.GetSecrets())
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize S3 client: %s", err)
 		}
 		meta := getMeta(bucketName, prefix, req.VolumeContext)
-		mounter, err := mounter.New(meta, s3.Config)
+		mntr, err := mounter.New(meta, s3Client.Config)
 		if err != nil {
 			return nil, err
 		}
-		if err := mounter.Mount(stagingTargetPath, volumeID); err != nil {
+		if err := mntr.Mount(stagingTargetPath, volumeID); err != nil {
 			return nil, err
 		}
 	}
@@ -179,11 +179,11 @@ func (d *driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	}
 
 	meta := getMeta(bucketName, prefix, req.VolumeContext)
-	mounter, err := mounter.New(meta, client.Config)
+	mntr, err := mounter.New(meta, client.Config)
 	if err != nil {
 		return nil, err
 	}
-	if err := mounter.Mount(stagingTargetPath, volumeID); err != nil {
+	if err := mntr.Mount(stagingTargetPath, volumeID); err != nil {
 		return nil, err
 	}
 
