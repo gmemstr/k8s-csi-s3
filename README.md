@@ -44,6 +44,8 @@ kubectl apply -k dpeloy/kubernetes
 kustomize build "https://git.gmem.ca/arch/k8s-csi-s3/deploy/kubernetes?ref=master"
 ```
 
+Note that by default the image is pulled from `git.gmem.ca/arch/csi-s3`, but it is also mirror to `ghcr.io/gmemstr/csi-s3`.
+
 #### 3. Create the storage class
 
 ```bash
