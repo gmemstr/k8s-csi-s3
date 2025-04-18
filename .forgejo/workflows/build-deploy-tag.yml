@@ -53,7 +53,7 @@ jobs:
         uses: https://github.com/docker/build-push-action@v6
         with:
           push: true
-          tags: git.gmem.ca/arch/csi-s3:${{ github.ref_name }}-arm64,ghcr.io/gmemstr/csi-s3:${{ github.ref_name }}-amd64
+          tags: git.gmem.ca/arch/csi-s3:${{ github.ref_name }}-arm64,ghcr.io/gmemstr/csi-s3:${{ github.ref_name }}-arm64
 
   merge:
     needs: [build-amd64, build-arm64]
