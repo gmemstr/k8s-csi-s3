@@ -5,3 +5,7 @@ resources:
   - ./csi-s3.yaml
   - ./driver.yaml
   - ./provisioner.yaml
+
+images:
+  - name: git.gmem.ca/arch/csi-s3
+    newTag: v1.0.2
