@@ -21,5 +21,8 @@ RUN apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/community s3
 ADD https://github.com/yandex-cloud/geesefs/releases/latest/download/geesefs-linux-$TARGETARCH /usr/bin/geesefs
 RUN chmod 755 /usr/bin/geesefs
 
+ADD https://github.com/tigrisdata/tigrisfs/releases/latest/download/tigrisfs_1.2.0_linux_$TARGETARCH.apk /tmp/tigrisfs.apk
+RUN apk add --allow-untrusted /tmp/tigrisfs.apk
+
 COPY --from=gobuild /build/s3driver /s3driver
 ENTRYPOINT ["/s3driver"]

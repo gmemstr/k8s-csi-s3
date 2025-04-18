@@ -66,6 +66,59 @@ var _ = Describe("S3Driver", func() {
 		})
 	})
 
+	Context("tigrisfs", func() {
+		socket := "/tmp/csi-tigrisfs.sock"
+		csiEndpoint := "unix://" + socket
+		if err := os.Remove(socket); err != nil && !os.IsNotExist(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+		driver, err := driver.New("test-node", csiEndpoint)
+		if err != nil {
+			log.Fatal(err)
+		}
+		go driver.Run()
+
+		Describe("CSI sanity", func() {
+			sanityCfg := &sanity.Config{
+				TargetPath:  os.TempDir() + "/tigrisfs-target",
+				StagingPath: os.TempDir() + "/tigrisfs-staging",
+				Address:     csiEndpoint,
+				SecretsFile: "../../test/secret.yaml",
+				TestVolumeParameters: map[string]string{
+					"mounter": "tigrisfs",
+					"bucket":  "testbucket0",
+				},
+			}
+			sanity.GinkgoTest(sanityCfg)
+		})
+	})
+
+	Context("tigrisfs-no-bucket", func() {
+		socket := "/tmp/csi-tigrisfs-no-bucket.sock"
+		csiEndpoint := "unix://" + socket
+		if err := os.Remove(socket); err != nil && !os.IsNotExist(err) {
+			Expect(err).NotTo(HaveOccurred())
+		}
+		driver, err := driver.New("test-node", csiEndpoint)
+		if err != nil {
+			log.Fatal(err)
+		}
+		go driver.Run()
+
+		Describe("CSI sanity", func() {
+			sanityCfg := &sanity.Config{
+				TargetPath:  os.TempDir() + "/tigrisfs-no-bucket-target",
+				StagingPath: os.TempDir() + "/tigrisfs-no-bucket-staging",
+				Address:     csiEndpoint,
+				SecretsFile: "../../test/secret.yaml",
+				TestVolumeParameters: map[string]string{
+					"mounter": "tigrisfs",
+				},
+			}
+			sanity.GinkgoTest(sanityCfg)
+		})
+	})
+
 	/*
 		Context("s3fs", func() {
 			socket := "/tmp/csi-s3fs.sock"
