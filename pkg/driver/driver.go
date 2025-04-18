@@ -37,7 +37,7 @@ type driver struct {
 
 var (
 	vendorVersion = "v1.34.7"
-	driverName    = "ru.yandex.s3.csi"
+	driverName    = "ca.gmem.s3.csi"
 )
 
 // New initializes the driver
@@ -49,16 +49,16 @@ func New(nodeID string, endpoint string) (*driver, error) {
 	return s3Driver, nil
 }
 
-func (s3 *driver) Run() {
+func (d *driver) Run() {
 	glog.Infof("Driver: %v ", driverName)
 	glog.Infof("Version: %v ", vendorVersion)
 	// Initialize default library driver
 
-	s3.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME})
-	s3.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER})
+	d.AddControllerServiceCapabilities([]csi.ControllerServiceCapability_RPC_Type{csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME})
+	d.AddVolumeCapabilityAccessModes([]csi.VolumeCapability_AccessMode_Mode{csi.VolumeCapability_AccessMode_MULTI_NODE_MULTI_WRITER})
 
 	s := NewNonBlockingGRPCServer()
-	s.Start(s3.endpoint, s3, s3, s3, s3, s3)
+	s.Start(d.endpoint, d, d, d, d, d)
 	s.Wait()
 }
 

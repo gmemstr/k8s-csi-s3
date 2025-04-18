@@ -16,7 +16,7 @@ spec:
     namespace: default
     name: csi-s3-manual-pvc
   csi:
-    driver: ru.yandex.s3.csi
+    driver: ca.gmem.s3.csi
     controllerPublishSecretRef:
       name: csi-s3-secret
       namespace: kube-system
@@ -28,7 +28,7 @@ spec:
       namespace: kube-system
     volumeAttributes:
       capacity: 10Gi
-      mounter: geesefs
+      mounter: tigrisfs
       options: --memory-limit 1000 --dir-mode 0777 --file-mode 0666
     volumeHandle: manualbucket/path
 ---

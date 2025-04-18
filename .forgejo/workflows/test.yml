@@ -1,0 +1,44 @@
+name: "Test CSI-S3"
+
+on:
+  push:
+
+jobs:
+  build-and-test:
+    runs-on: debian-amd64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+      - name: Cache minio
+        id: cache-minio
+        uses: actions/cache@v3
+        with: # Specify with your cache path
+          path: /usr/local/bin/minio
+          key: minio-master
+
+      - name: Download and build minio
+        if: steps.cache-minio.outputs.cache-hit != 'true'
+        run: |
+          wget https://github.com/minio/minio/archive/refs/heads/master.tar.gz -O minio.tar.gz
+          tar -xzvf minio.tar.gz
+          cd minio-master
+          go build
+          mv minio /usr/local/bin
+
+      - name: Download and install geesefs
+        run: |
+          wget https://github.com/yandex-cloud/geesefs/releases/latest/download/geesefs-linux-amd64 \
+            -O /usr/bin/geesefs && chmod 755 /usr/bin/geesefs
+      - name: Download and install tigrisfs
+        run: |
+          wget https://github.com/tigrisdata/tigrisfs/releases/latest/download/tigrisfs_1.2.0_linux_amd64.tar.gz \
+            -O tigrisfs.tar.gz
+          tar -xzvf tigrisfs.tar.gz
+          mv tigrisfs /usr/bin/tigrisfs && chmod 755 /usr/bin/tigrisfs
+
+      - name: Run tests
+        run: ./test/test.sh

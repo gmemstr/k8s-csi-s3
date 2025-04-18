@@ -22,11 +22,11 @@ to your [Yandex Object Storage](https://cloud.yandex.com/en-ru/services/storage)
 The following table lists all configuration parameters and their default values.
 
 | Parameter                    | Description                                                            | Default                                                |
-| ---------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| ---------------------------- | ---------------------------------------------------------------------- |--------------------------------------------------------|
 | `storageClass.create`        | Specifies whether the storage class should be created                  | true                                                   |
 | `storageClass.name`          | Storage class name                                                     | csi-s3                                                 |
 | `storageClass.singleBucket`  | Use a single bucket for all dynamically provisioned persistent volumes |                                                        |
-| `storageClass.mounter`       | Mounter to use. Either geesefs, s3fs or rclone. geesefs recommended    | geesefs                                                |
+| `storageClass.mounter`       | Mounter to use. Either geesefs, s3fs or rclone. geesefs recommended    | tigrisfs                                               |
 | `storageClass.mountOptions`  | GeeseFS mount options                                                  | `--memory-limit 1000 --dir-mode 0777 --file-mode 0666` |
 | `storageClass.reclaimPolicy` | Volume reclaim policy                                                  | Delete                                                 |
 | `storageClass.annotations`   | Annotations for the storage class                                      |                                                        |
@@ -35,7 +35,7 @@ The following table lists all configuration parameters and their default values.
 | `secret.accessKey`           | S3 Access Key                                                          |                                                        |
 | `secret.secretKey`           | S3 Secret Key                                                          |                                                        |
 | `secret.endpoint`            | Endpoint                                                               | https://storage.yandexcloud.net                        |
-| `secret.region`              | Region                                                                 |                         |
+| `secret.region`              | Region                                                                 |                                                        |
 | `tolerations.all`            | Tolerate all taints by the CSI-S3 node driver (mounter)                | false                                                  |
 | `tolerations.node`           | Custom tolerations for the CSI-S3 node driver (mounter)                | []                                                     |
 | `tolerations.controller`     | Custom tolerations for the CSI-S3 controller (provisioner)             | []                                                     |

@@ -61,7 +61,7 @@ spec:
             - name: ADDRESS
               value: /csi/csi.sock
             - name: DRIVER_REG_SOCK_PATH
-              value: {{ .Values.kubeletPath }}/plugins/ru.yandex.s3.csi/csi.sock
+              value: {{ .Values.kubeletPath }}/plugins/ca.gmem.s3.csi/csi.sock
             - name: KUBE_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -110,7 +110,7 @@ spec:
             type: DirectoryOrCreate
         - name: plugin-dir
           hostPath:
-            path: {{ .Values.kubeletPath }}/plugins/ru.yandex.s3.csi
+            path: {{ .Values.kubeletPath }}/plugins/ca.gmem.s3.csi
             type: DirectoryOrCreate
         - name: stage-dir
           hostPath:

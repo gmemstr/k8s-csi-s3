@@ -1,24 +1,15 @@
 # CSI for S3
 
+Fork of https://github.com/yandex-cloud/k8s-csi-s3 with updates and [tigrisfs](https://github.com/tigrisdata/tigrisfs) support.
+
 This is a Container Storage Interface ([CSI](https://github.com/container-storage-interface/spec/blob/master/spec.md)) for S3 (or S3 compatible) storage. This can dynamically allocate buckets and mount them via a fuse mount into any container.
 
 ## Kubernetes installation
 
 ### Requirements
 
-* Kubernetes 1.17+
+* Kubernetes 1.31+
 * Kubernetes has to allow privileged containers
-* Docker daemon must allow shared mounts (systemd flag `MountFlags=shared`)
-
-### Helm chart
-
-Helm chart is published at `https://yandex-cloud.github.io/k8s-csi-s3`:
-
-```
-helm repo add yandex-s3 https://yandex-cloud.github.io/k8s-csi-s3/charts
-
-helm install csi-s3 yandex-s3/csi-s3
-```
 
 ### Manual installation
 
@@ -35,7 +26,7 @@ stringData:
   accessKeyID: <YOUR_ACCESS_KEY_ID>
   secretAccessKey: <YOUR_SECRET_ACCESS_KEY>
   # For AWS set it to "https://s3.<region>.amazonaws.com", for example https://s3.eu-central-1.amazonaws.com
-  endpoint: https://storage.yandexcloud.net
+  endpoint: https://s3.<region>.amazonaws.com
   # For AWS set it to AWS region
   #region: ""
 ```
@@ -44,37 +35,16 @@ The region can be empty if you are using some other S3 compatible storage.
 
 #### 2. Deploy the driver
 
-```bash
-cd deploy/kubernetes
-kubectl create -f provisioner.yaml
-kubectl create -f driver.yaml
-kubectl create -f csi-s3.yaml
-```
-
-##### Upgrading
-
-If you're upgrading from <= 0.35.5 - delete all resources from `attacher.yaml`:
-
-```
-wget https://raw.githubusercontent.com/yandex-cloud/k8s-csi-s3/v0.35.5/deploy/kubernetes/attacher.yaml
-kubectl delete -f attacher.yaml
-```
-
-If you're upgrading from <= 0.40.6 - delete all resources from old `provisioner.yaml`:
+`master` can be replaced with the relevant tag.
 
 ```bash
-wget -O old-provisioner.yaml https://raw.githubusercontent.com/yandex-cloud/k8s-csi-s3/v0.40.6/deploy/kubernetes/provisioner.yaml
-kubectl delete -f old-provisioner.yaml
+# Cloned locally
+kubectl apply -k dpeloy/kubernetes
+# Not cloned remotely.
+kustomize build "https://git.gmem.ca/arch/k8s-csi-s3/deploy/kubernetes?ref=master"
 ```
 
-Then reapply `csi-s3.yaml`, `driver.yaml` and `provisioner.yaml`:
-
-```bash
-cd deploy/kubernetes
-kubectl apply -f provisioner.yaml
-kubectl apply -f driver.yaml
-kubectl apply -f csi-s3.yaml
-```
+Note that by default the image is pulled from `git.gmem.ca/arch/csi-s3`, but it is also mirror to `ghcr.io/gmemstr/csi-s3`.
 
 #### 3. Create the storage class
 
@@ -128,9 +98,9 @@ kind: StorageClass
 apiVersion: storage.k8s.io/v1
 metadata:
   name: csi-s3-existing-bucket
-provisioner: ru.yandex.s3.csi
+provisioner: ca.gmem.s3.csi
 parameters:
-  mounter: geesefs
+  mounter: tigrisfs
   options: "--memory-limit 1000 --dir-mode 0777 --file-mode 0666"
   bucket: some-existing-bucket-name
 ```
@@ -145,7 +115,8 @@ To do that you should omit `storageClassName` in the `PersistentVolumeClaim` and
 
 ### Mounter
 
-We **strongly recommend** to use the default mounter which is [GeeseFS](https://github.com/yandex-cloud/geesefs).
+We **strongly recommend** to use the default mounter which is [TigrisFS](https://github.com/tigrisdata/tigrisfs). This is
+a fork of [GeeseFS](https://github.com/yandex-cloud/geesefs) with improve reliability and stability.
 
 However there is also support for two other backends: [s3fs](https://github.com/s3fs-fuse/s3fs-fuse) and [rclone](https://rclone.org/commands/rclone_mount).
 
@@ -157,7 +128,7 @@ Also depending on what S3 storage backend you are using there are not always [co
 
 You can check POSIX compatibility matrix here: https://github.com/yandex-cloud/geesefs#posix-compatibility-matrix.
 
-#### GeeseFS
+#### GeeseFS / TigrisFS
 
 * Almost full POSIX compatibility
 * Good performance for both small and big files
@@ -204,7 +175,7 @@ kubectl logs -l app=csi-s3 -c csi-s3
 This project can be built like any other go application.
 
 ```bash
-go get -u github.com/yandex-cloud/k8s-csi-s3
+go get -u git.gmem.ca/arch/k8s-csi-s3
 ```
 
 ### Build executable

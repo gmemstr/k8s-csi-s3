@@ -22,10 +22,10 @@ TEST_IMAGE_TAG=$(IMAGE_NAME):test
 build:
 	CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o _output/s3driver ./cmd/s3driver
 test:
-	docker build -t $(TEST_IMAGE_TAG) -f test/Dockerfile .
+	docker buildx build -t $(TEST_IMAGE_TAG) -f test/Dockerfile .
 	docker run --rm --privileged -v $(PWD):/build --device /dev/fuse $(TEST_IMAGE_TAG)
 container:
-	docker build -t $(IMAGE_TAG) .
+	docker buildx build -t $(IMAGE_TAG) .
 push: container
 	docker tag $(IMAGE_TAG) $(REGISTRY_NAME)/$(IMAGE_NAME):latest
 	docker push $(REGISTRY_NAME)/$(IMAGE_NAME)

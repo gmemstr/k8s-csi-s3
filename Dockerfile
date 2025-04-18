@@ -10,7 +10,7 @@ ADD pkg /build/pkg
 RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o ./s3driver ./cmd/s3driver
 
 FROM alpine:3.21
-LABEL maintainers="Vitaliy Filippov <vitalif@yourcmc.ru>"
+LABEL maintainers="Arch Retreiver <arch@gmem.ca>"
 LABEL description="csi-s3 slim image"
 
 ARG TARGETARCH

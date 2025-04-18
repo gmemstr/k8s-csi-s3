@@ -1,3 +1,6 @@
+This repository is a fork of the k8s-csi-s3 project. This repository is owned and maintained by Arch.
+
+The original authors of the k8s-csi-s3 project are listed below.
 The following authors have created the source code of "k8s-csi-s3" published and distributed by YANDEX LLC as the owner:
 
 Vitaliy Filippov  vitaliff@yandex-team.ru

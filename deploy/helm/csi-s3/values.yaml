@@ -1,11 +1,8 @@
 ---
 images:
-  # Source: quay.io/k8scsi/csi-node-driver-registrar:v1.2.0
-  registrar: cr.yandex/crp9ftr22d26age3hulg/yandex-cloud/csi-s3/csi-node-driver-registrar:v1.2.0
-  # Source: quay.io/k8scsi/csi-provisioner:v2.1.0
-  provisioner: cr.yandex/crp9ftr22d26age3hulg/yandex-cloud/csi-s3/csi-provisioner:v2.1.0
-  # Main image
-  csi: cr.yandex/crp9ftr22d26age3hulg/yandex-cloud/csi-s3/csi-s3-driver:0.42.1
+  registrar: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.5.0
+  provisioner: gcr.io/k8s-staging-sig-storage/csi-provisioner:v5.2.0
+  csi: git.gmem.ca/arch/csi-s3:latest
 
 storageClass:
   # Specifies whether the storage class should be created
@@ -14,8 +11,8 @@ storageClass:
   name: csi-s3
   # Use a single bucket for all dynamically provisioned persistent volumes
   singleBucket: ""
-  # mounter to use - either geesefs, s3fs or rclone (default geesefs)
-  mounter: geesefs
+  # mounter to use - either geesefs, s3fs or rclone (default tigrisfs)
+  mounter: tigrisfs
   # GeeseFS mount options
   mountOptions: "--memory-limit 1000 --dir-mode 0777 --file-mode 0666"
   # Volume reclaim policy

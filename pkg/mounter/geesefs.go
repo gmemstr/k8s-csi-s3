@@ -10,7 +10,7 @@ import (
 	dbus "github.com/godbus/dbus/v5"
 	"github.com/golang/glog"
 
-	"github.com/yandex-cloud/k8s-csi-s3/pkg/s3"
+	"git.gmem.ca/arch/k8s-csi-s3/pkg/s3"
 )
 
 const (
@@ -151,7 +151,7 @@ func (geesefs *geesefsMounter) Mount(target, volumeID string) error {
 	}
 	pluginDir := os.Getenv("PLUGIN_DIR")
 	if pluginDir == "" {
-		pluginDir = "/var/lib/kubelet/plugins/ru.yandex.s3.csi"
+		pluginDir = "/var/lib/kubelet/plugins/ca.gmem.s3.csi"
 	}
 	args = append([]string{pluginDir + "/geesefs", "-f", "-o", "allow_other", "--endpoint", geesefs.endpoint}, args...)
 	glog.Info("Starting geesefs using systemd: " + strings.Join(args, " "))

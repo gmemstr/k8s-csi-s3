@@ -21,7 +21,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/yandex-cloud/k8s-csi-s3/pkg/driver"
+	"git.gmem.ca/arch/k8s-csi-s3/pkg/driver"
 )
 
 func init() {
