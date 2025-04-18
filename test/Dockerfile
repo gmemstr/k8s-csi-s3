@@ -5,8 +5,8 @@ ARG TARGETARCH
 LABEL maintainers="Vitaliy Filippov <vitalif@yourcmc.ru>"
 LABEL description="csi-s3 testing image"
 
-RUN wget https://github.com/minio/minio/archive/refs/heads/master.tar.gz
-RUN tar -xvf master.tar.gz && cd minio-master && go build && mv minio /usr/local/bin
+ADD https://github.com/minio/minio/archive/refs/heads/master.tar.gz minio.tar.gz
+RUN tar -xzvf minio.tar.gz && cd minio && go build && mv minio /usr/local/bin
 
 WORKDIR /build
 
