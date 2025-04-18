@@ -2,12 +2,11 @@ name: Build and Push csi-s3
 
 on:
   push:
+    branches: [master]
 
 jobs:
   build-amd64:
     runs-on: debian-amd64
-    container:
-      image: ghcr.io/catthehacker/ubuntu:act-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v3.5.3
@@ -33,8 +32,6 @@ jobs:
 
   build-arm64:
     runs-on: debian-arm64
-    container:
-      image: ghcr.io/catthehacker/ubuntu:act-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@v3.5.3
@@ -61,8 +58,6 @@ jobs:
   merge:
     needs: [build-amd64, build-arm64]
     runs-on: debian-latest
-    container:
-      image: ghcr.io/catthehacker/ubuntu:act-22.04
     steps:
       - name: Login to container registry
         uses: https://github.com/docker/login-action@v3
