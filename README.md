@@ -98,7 +98,7 @@ metadata:
   name: csi-s3-existing-bucket
 provisioner: ca.gmem.s3.csi
 parameters:
-  mounter: geesefs
+  mounter: tigrisfs
   options: "--memory-limit 1000 --dir-mode 0777 --file-mode 0666"
   bucket: some-existing-bucket-name
 ```
@@ -113,7 +113,8 @@ To do that you should omit `storageClassName` in the `PersistentVolumeClaim` and
 
 ### Mounter
 
-We **strongly recommend** to use the default mounter which is [GeeseFS](https://github.com/yandex-cloud/geesefs) or it's fork [TigrisFS](https://github.com/tigrisdata/tigrisfs).
+We **strongly recommend** to use the default mounter which is [TigrisFS](https://github.com/tigrisdata/tigrisfs). This is
+a fork of [GeeseFS](https://github.com/yandex-cloud/geesefs) with improve reliability and stability.
 
 However there is also support for two other backends: [s3fs](https://github.com/s3fs-fuse/s3fs-fuse) and [rclone](https://rclone.org/commands/rclone_mount).
 
@@ -125,7 +126,7 @@ Also depending on what S3 storage backend you are using there are not always [co
 
 You can check POSIX compatibility matrix here: https://github.com/yandex-cloud/geesefs#posix-compatibility-matrix.
 
-#### GeeseFS
+#### GeeseFS / TigrisFS
 
 * Almost full POSIX compatibility
 * Good performance for both small and big files
@@ -134,12 +135,6 @@ You can check POSIX compatibility matrix here: https://github.com/yandex-cloud/g
   mountpoints with "Transport endpoint is not connected" when csi-s3 is upgraded
   or restarted. Add `--no-systemd` to `parameters.options` of the `StorageClass`
   to disable this behaviour.
-
-#### TigrisFS
-
-* Fork of GeeseFS
-* Actively maintained by Tigris
-* Improved security and reliability
 
 #### s3fs
 

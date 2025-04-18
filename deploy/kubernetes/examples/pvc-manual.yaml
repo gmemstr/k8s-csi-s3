@@ -28,7 +28,7 @@ spec:
       namespace: kube-system
     volumeAttributes:
       capacity: 10Gi
-      mounter: geesefs
+      mounter: tigrisfs
       options: --memory-limit 1000 --dir-mode 0777 --file-mode 0666
     volumeHandle: manualbucket/path
 ---

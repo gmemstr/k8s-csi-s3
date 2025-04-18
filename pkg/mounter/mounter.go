@@ -56,7 +56,7 @@ func New(meta *s3.FSMeta, cfg *s3.Config) (Mounter, error) {
 
 	default:
 		// default to GeeseFS
-		return newGeeseFSMounter(meta, cfg)
+		return newTigrisFSMounter(meta, cfg)
 	}
 }
 
